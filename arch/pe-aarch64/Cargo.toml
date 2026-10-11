@@ -1,0 +1,14 @@
+[package]
+name = "mold-pe-aarch64"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "An internal crate of the mold linker, which instantiates its PE/COFF linker for AArch64"
+license.workspace = true
+repository.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+mold-pe.workspace = true

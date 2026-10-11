@@ -365,6 +365,8 @@ pub fn emulation_to_target(emulation: &str) -> Option<&'static str> {
         "shelf" | "shelf_linux" => "sh4be",
         "elf64loongarch" => "loongarch64",
         "elf32loongarch" => "loongarch32",
+        "i386pep" | "i386pe" => "pe-x86-64",
+        "arm64pep" | "arm64pe" => "pe-aarch64",
         _ => return None,
     })
 }

@@ -288,6 +288,9 @@ dependencies = [
  "mold-macho-arm64",
  "mold-macho-x86_64",
  "mold-mimalloc",
+ "mold-pe",
+ "mold-pe-aarch64",
+ "mold-pe-x86_64",
  "mold-tests",
 ]
 
@@ -517,6 +520,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66a79c372cdbf45bf4548fd4aa40a0b2805ef2ee8e25e5185e11bf2b5c5de366"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "mold-pe"
+version = "3.0.0"
+dependencies = [
+ "hashbrown",
+ "libc",
+ "memchr",
+ "mold-common",
+ "rayon",
+]
+
+[[package]]
+name = "mold-pe-aarch64"
+version = "3.0.0"
+dependencies = [
+ "mold-pe",
+]
+
+[[package]]
+name = "mold-pe-x86_64"
+version = "3.0.0"
+dependencies = [
+ "mold-pe",
 ]
 
 [[package]]

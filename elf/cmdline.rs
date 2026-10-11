@@ -1900,6 +1900,33 @@ pub fn parse_args(target: &TargetTraits, raw_cmdline: &[Cow<'_, OsStr>]) -> Pars
             fatal!(
                 "unknown command line option: -dynamic; -dynamic is a macOS linker's option. mold does not support macOS."
             );
+        } else if matches!(
+            cursor.text(),
+            "--export-all-symbols"
+                | "--no-export-all-symbols"
+                | "--dll"
+                | "--enable-auto-import"
+                | "--disable-auto-import"
+                | "--enable-runtime-pseudo-reloc"
+                | "--no-runtime-pseudo-reloc"
+                | "--disable-runtime-pseudo-reloc"
+                | "--kill-at"
+                | "--warn-shared-text"
+                | "--no-warn-shared-text"
+        ) {
+            // PE/COFF-only options; ignored by the ELF parser. The PE
+            // driver re-parses the command line when it takes the link.
+            cursor.index += 1;
+        } else if cursor.text() == "--subsystem" {
+            cursor.index += 1;
+            if cursor.index < raw_cmdline.len() {
+                let next = raw_cmdline[cursor.index].as_encoded_bytes();
+                if next != b"windows" && next != b"console" && !next.starts_with(b"-") {
+                    cursor.index += 1;
+                }
+            }
+        } else if cursor.text().starts_with("--subsystem=") {
+            cursor.index += 1;
         } else {
             fatal!("unknown command line option: {}", cursor.current().to_string_lossy());
         }

@@ -1,5 +1,5 @@
-//! The `mold` executable: runs the ELF linker, or the Mach-O linker if
-//! invoked as `ld64.mold`, instantiated for the target the inputs are for.
+//! The `mold` executable: runs the ELF linker, the Mach-O linker if
+//! invoked as `ld64.mold`, or the PE/COFF linker for MinGW inputs.
 //! Each target is instantiated in a crate of its own so that the compiler
 //! can build them in parallel, and a feature per target decides which of
 //! them are built in.
@@ -23,6 +23,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 type LinkFn = fn(Cmdline) -> Option<&'static str>;
 type MachoLinkFn = fn(mold_macho::driver::ParsedArgs);
+type PeLinkFn = fn(mold_pe::driver::Cmdline);
 
 // Each target has its own monomorphized link function. The ELF linker
 // starts with the first enabled target and switches to the matching
@@ -78,6 +79,13 @@ const MACHO_TARGETS: &[(&str, MachoLinkFn)] = &[
     ("x86_64", mold_macho_x86_64::link),
 ];
 
+const PE_TARGETS: &[(&str, PeLinkFn)] = &[
+    #[cfg(feature = "pe-x86_64")]
+    ("pe-x86-64", mold_pe_x86_64::link),
+    #[cfg(feature = "pe-aarch64")]
+    ("pe-aarch64", mold_pe_aarch64::link),
+];
+
 fn link_fn<F: Copy>(targets: &[(&str, F)], target: &str) -> F {
     for &(name, link) in targets {
         if name == target {
@@ -102,6 +110,20 @@ fn main() {
     if args.first().is_some_and(|argv0| is_ld64(argv0)) {
         let link = |target: &str, parsed| link_fn(MACHO_TARGETS, target)(parsed);
         mold_macho::driver::main(args, link);
+        std::process::exit(0);
+    }
+
+    // MinGW PE/COFF inputs dispatch to the PE linker: an explicit `-m
+    // i386pep` / `-m arm64pep`, PE-only options, or COFF inputs.
+    if mold_pe::driver::wants_pe_target(&args)
+        || mold_pe::driver::detect_pe_target(&args).is_some()
+    {
+        let Some(&(_, link)) = PE_TARGETS.first() else {
+            eprintln!("mold: unsupported target: pe-x86-64; rebuild mold with pe-x86_64 support");
+            std::process::exit(1);
+        };
+        mold_pe::driver::main(args);
+        let _ = link;
         std::process::exit(0);
     }
 

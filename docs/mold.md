@@ -407,7 +407,8 @@ point symbol in a script.
 
 * `-m` _target_:
   Link for _target_, which is an emulation name such as `elf_x86_64` or
-  `aarch64linux`. If this option is not given, `mold` infers the target from
+  `aarch64linux`. `i386pep` selects the PE/COFF linker for MinGW Windows
+  targets. If this option is not given, `mold` infers the target from
   the input object files.
 
 * `-n`, `--nmagic`, `--no-nmagic`:

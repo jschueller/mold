@@ -1,0 +1,18 @@
+[package]
+name = "mold-pe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "An internal crate of the mold linker, which implements its PE/COFF linker for MinGW"
+license.workspace = true
+repository.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+hashbrown = "0.17"
+libc.workspace = true
+memchr = "2.8.3"
+mold-common.workspace = true
+rayon = "1.12.0"

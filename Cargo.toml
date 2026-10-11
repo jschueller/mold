@@ -4,7 +4,7 @@
 # arch/, and the executable in cli/ dispatches to them.
 [workspace]
 resolver = "3"
-members = ["cli", "common", "elf", "macho", "arch/*", "tests"]
+members = ["cli", "common", "elf", "macho", "pe", "arch/*", "tests"]
 
 [workspace.package]
 version = "3.0.0"
@@ -43,6 +43,9 @@ mold-elf-loongarch32 = { path = "arch/elf-loongarch32", version = "=3.0.0" }
 mold-macho = { path = "macho", version = "=3.0.0" }
 mold-macho-arm64 = { path = "arch/macho-arm64", version = "=3.0.0" }
 mold-macho-x86_64 = { path = "arch/macho-x86_64", version = "=3.0.0" }
+mold-pe = { path = "pe", version = "=3.0.0" }
+mold-pe-x86_64 = { path = "arch/pe-x86_64", version = "=3.0.0" }
+mold-pe-aarch64 = { path = "arch/pe-aarch64", version = "=3.0.0" }
 
 [profile.release]
 panic = "abort"

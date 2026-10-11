@@ -200,6 +200,12 @@ pub fn read_file<E: Target>(
         FileType::GccLtoObj | FileType::LlvmBitcode => {
             defer_lto_object(ctx, rctx.clone(), mf, Path::new(""));
         }
+        FileType::CoffObj | FileType::CoffArchive | FileType::PeFile => {
+            fatal!(
+                "{}: PE/COFF file detected but ELF linker is active; use -m i386pep to link PE/COFF files",
+                mf.name.display()
+            );
+        }
         _ => fatal!("{}: unknown file type", mf.name.display()),
     }
 }
@@ -395,6 +401,12 @@ pub fn read_input_files<E: Target>(ctx: &mut Context<E>, jobs: Vec<ReaderJob>) {
                 }
                 FileType::GccLtoObj | FileType::LlvmBitcode => {
                     defer_lto_object(ctx_ref, rctx, mf, Path::new(""));
+                }
+                FileType::CoffObj | FileType::CoffArchive | FileType::PeFile => {
+                    fatal!(
+                        "{}: PE/COFF file detected but ELF linker is active; use -m i386pep to link PE/COFF files",
+                        mf.name.display()
+                    );
                 }
                 _ => fatal!("{}: unknown file type", mf.name.display()),
             }

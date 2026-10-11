@@ -17,6 +17,9 @@ pub enum FileType {
     Text,
     GccLtoObj,
     LlvmBitcode,
+    CoffObj,
+    CoffArchive,
+    PeFile,
 }
 
 fn is_text_file(data: &[u8]) -> bool {
@@ -167,10 +170,22 @@ pub fn get_file_type(plugin: &std::path::Path, mf: &MappedFile) -> FileType {
     }
 
     if data.starts_with(b"!<arch>\n") {
+        // MinGW import libraries and COFF archives share the SysV magic
+        // with ELF archives; tell them apart by member content so the
+        // driver can route COFF inputs to the PE linker.
+        if is_coff_archive(data) {
+            return FileType::CoffArchive;
+        }
         return FileType::Ar;
     }
     if data.starts_with(b"!<thin>\n") {
         return FileType::ThinAr;
+    }
+    if is_pe_file(data) {
+        return FileType::PeFile;
+    }
+    if is_coff_object(data) {
+        return FileType::CoffObj;
     }
     if is_text_file(data) {
         return FileType::Text;
@@ -179,6 +194,77 @@ pub fn get_file_type(plugin: &std::path::Path, mf: &MappedFile) -> FileType {
         return FileType::LlvmBitcode;
     }
     FileType::Unknown
+}
+
+fn is_coff_object(data: &[u8]) -> bool {
+    if data.len() < 2 {
+        return false;
+    }
+    let machine = u16::from_le_bytes([data[0], data[1]]);
+    machine == 0x8664 || machine == 0x014C
+}
+
+fn is_pe_file(data: &[u8]) -> bool {
+    if data.len() < 64 || data[0] != b'M' || data[1] != b'Z' {
+        return false;
+    }
+    let off = u32::from_le_bytes([data[60], data[61], data[62], data[63]]) as usize;
+    off + 4 <= data.len() && &data[off..off + 4] == b"PE\0\0"
+}
+
+/// Heuristic for COFF archives: the first member header names `/` (the
+/// SysV linker member) and the file does not contain an ELF object.
+fn is_coff_archive(data: &[u8]) -> bool {
+    // A SysV archive is COFF iff its first real member is a COFF object:
+    // both toolchains start the archive with a `/` index member, so the
+    // name alone cannot tell them apart. Skip the index, long-name table
+    // and other special members and inspect the first member's content.
+    if data.len() < 8 || &data[..8] != b"!<arch>\n" {
+        return false;
+    }
+    let mut off = 8usize;
+    while off + 60 <= data.len() {
+        if &data[off..off + 8] == b"!<arch>\n" || &data[off + 58..off + 60] != b"`\n" {
+            break;
+        }
+        let mut end = 16usize;
+        while end > 0 && data[off + end - 1] == b' ' {
+            end -= 1;
+        }
+        let name = &data[off..off + end];
+        let mut digits = 0usize;
+        let mut size = 0usize;
+        while digits < 10 && data[off + 48 + digits].is_ascii_digit() {
+            size = size * 10 + (data[off + 48 + digits] - b'0') as usize;
+            digits += 1;
+        }
+        if digits == 0 {
+            return false;
+        }
+        off += 60;
+        if off + size > data.len() {
+            return false;
+        }
+        let special =
+            name == b"/" || name == b"//" || name == b"__.SYMDEF" || name == b"/SYM64/";
+        if !special && size >= 2 {
+            // BigObj members start with the anonymous header, whose
+            // machine field sits at a different offset.
+            if size >= 8
+                && data[off] == 0
+                && data[off + 1] == 0
+                && data[off + 2] == 0xFF
+                && data[off + 3] == 0xFF
+            {
+                let machine = u16::from_le_bytes([data[off + 6], data[off + 7]]);
+                return machine == 0x8664 || machine == 0x014C || machine == 0xAA64;
+            }
+            let machine = u16::from_le_bytes([data[off], data[off + 1]]);
+            return machine == 0x8664 || machine == 0x014C || machine == 0xAA64;
+        }
+        off += (size + 1) & !1;
+    }
+    false
 }
 
 /// Returns the target name of an ELF file, or `None` if its machine type
@@ -256,6 +342,24 @@ pub fn get_machine_type(
                 matches!(get_file_type(plugin, child), FileType::ElfObj | FileType::GccLtoObj)
             })
             .and_then(|child| get_elf_target(child.data())),
+        FileType::CoffObj | FileType::PeFile => get_pe_target(mf.data()),
+        FileType::CoffArchive => Some("pe-x86-64"),
+        _ => None,
+    }
+}
+
+fn get_pe_target(data: &[u8]) -> Option<&'static str> {
+    if data.len() < 2 {
+        return None;
+    }
+    // PE files start with MZ; COFF objects with the machine type.
+    if data.len() >= 64 && data[0] == b'M' && data[1] == b'Z' {
+        return Some("pe-x86-64");
+    }
+    let machine = u16::from_le_bytes([data[0], data[1]]);
+    match machine {
+        0x8664 => Some("pe-x86-64"),
+        0x014C => Some("pe-i386"),
         _ => None,
     }
 }

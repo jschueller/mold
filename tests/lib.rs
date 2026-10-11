@@ -9,6 +9,7 @@
 //! x86_64 under Rosetta and on simulator devices (see macho.rs).
 
 pub mod elf;
+pub mod pe;
 #[cfg(target_os = "macos")]
 pub mod macho;
 #[cfg(target_os = "macos")]
@@ -261,8 +262,9 @@ fn replace_file_link(source: &Path, destination: &Path) -> io::Result<()> {
 /// source tree. The directory holds the linker under the names the
 /// scripts invoke it by: mold, ld and ld.lld, which the ELF scripts find
 /// with ./mold and the compiler's -B. option (upstream LLVM defaults to
-/// ld.lld on FreeBSD, so overriding only ld is not enough), and
-/// ld64.mold, the name under which mold acts as the Mach-O linker.
+/// ld.lld on FreeBSD, so overriding only ld is not enough), ld.mold,
+/// which the PE scripts' -fuse-ld=mold resolves, and ld64.mold, the name
+/// under which mold acts as the Mach-O linker.
 fn prepare_work_dir(mold: &Path) -> io::Result<PathBuf> {
     let mold = mold.canonicalize()?;
     let profile_dir = mold.parent().ok_or_else(|| {
@@ -273,7 +275,7 @@ fn prepare_work_dir(mold: &Path) -> io::Result<PathBuf> {
     })?;
     let work_dir = profile_dir.join("mold-test");
     fs::create_dir_all(&work_dir)?;
-    for name in ["mold", "ld", "ld.lld", "ld64.mold"] {
+    for name in ["mold", "ld", "ld.lld", "ld.mold", "ld64.mold"] {
         replace_file_link(&mold, &work_dir.join(name))?;
     }
     Ok(work_dir)
